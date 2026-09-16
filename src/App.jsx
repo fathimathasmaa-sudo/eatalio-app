@@ -12,6 +12,7 @@ import CustomerCheckout from "./pages/CustomerCheckout";
 import CustomerOrders from "./pages/CustomerOrders";
 import CustomerOrder from "./pages/CustomerOrder";
 import KitchenView from "./pages/KitchenView";
+import StaffOrders from "./pages/StaffOrders";
 
 export default function App() {
   return (
@@ -22,7 +23,7 @@ export default function App() {
         <Route path="/AdminLogin" element={<AdminLogin />} />
         <Route path="/StaffLogin" element={<StaffLogin />} />
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
-        <Route path="/staff-dashboard" element={<StaffDashboard />} />
+        <Route path="/staff-dashboard" element={<StaffOrders />} />
         <Route path="/kitchen" element={<KitchenView />} />
         <Route path="/menu" element={<CustomerMenu />} />
         <Route path="/cart" element={<CustomerCart />} />
