@@ -8,6 +8,7 @@ import StaffDashboard from "./pages/StaffDashboard";
 import CustomerHome from "./pages/CustomerHome";
 import CustomerMenu from "./pages/CustomerMenu";
 import CustomerCart from "./pages/CustomerCart";
+import CustomerCheckout from "./pages/CustomerCheckout";
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
         <Route path="/staff-dashboard" element={<StaffDashboard />} />
         <Route path="/menu" element={<CustomerMenu />} />
         <Route path="/cart" element={<CustomerCart />} />
+        <Route path="/checkout" element={<CustomerCheckout />} />
       </Routes>
     </Router>
   );
