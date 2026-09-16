@@ -9,6 +9,8 @@ import CustomerHome from "./pages/CustomerHome";
 import CustomerMenu from "./pages/CustomerMenu";
 import CustomerCart from "./pages/CustomerCart";
 import CustomerCheckout from "./pages/CustomerCheckout";
+import CustomerOrders from "./pages/CustomerOrders";
+import CustomerOrder from "./pages/CustomerOrder";
 
 export default function App() {
   return (
@@ -23,6 +25,8 @@ export default function App() {
         <Route path="/menu" element={<CustomerMenu />} />
         <Route path="/cart" element={<CustomerCart />} />
         <Route path="/checkout" element={<CustomerCheckout />} />
+        <Route path="/orders" element={<CustomerOrders />} />
+        <Route path="/order/:id" element={<CustomerOrder />} />
       </Routes>
     </Router>
   );
