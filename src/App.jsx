@@ -15,6 +15,7 @@ import KitchenView from "./pages/KitchenView";
 import AdminOperations from "./pages/AdminOperations";
 import AdminMenu from "./pages/AdminMenu";
 import AdminDeliveryPayments from "./pages/AdminDeliveryPayments";
+import AdminTables from "./pages/AdminTables";
 
 export default function App() {
   return <Router><Routes>
@@ -26,6 +27,7 @@ export default function App() {
     <Route path="/admin/operations" element={<AdminOperations />} />
     <Route path="/admin/menu" element={<AdminMenu />} />
     <Route path="/admin/delivery-payments" element={<AdminDeliveryPayments />} />
+    <Route path="/admin/tables" element={<AdminTables />} />
     <Route path="/staff-dashboard" element={<StaffOrders />} />
     <Route path="/kitchen" element={<KitchenView />} />
     <Route path="/menu" element={<CustomerMenu />} />
