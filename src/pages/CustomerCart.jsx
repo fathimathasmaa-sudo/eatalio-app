@@ -1,0 +1,59 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
+import { doc, getDoc } from "firebase/firestore";
+import { useNavigate } from "react-router-dom";
+import { db } from "../firebaseConfig";
+
+const CART_KEY = "eatalio-cart";
+
+function readCart() {
+  try { return JSON.parse(localStorage.getItem(CART_KEY) || "[]"); } catch { return []; }
+}
+
+function price(value) { return `MVR ${Number(value || 0).toFixed(0)}`; }
+
+export default function CustomerCart() {
+  const navigate = useNavigate();
+  const params = new URLSearchParams(window.location.search);
+  const table = params.get("table") || "";
+  const [cart, setCart] = useState(readCart);
+  const [taxPercent, setTaxPercent] = useState(8);
+
+  useEffect(() => {
+    getDoc(doc(db, "settings", "app")).then((snap) => {
+      if (snap.exists()) setTaxPercent(Number(snap.data().taxPercent ?? 8));
+    }).catch(console.error);
+  }, []);
+
+  const subtotal = useMemo(() => cart.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0), [cart]);
+  const tax = subtotal * taxPercent / 100;
+  const total = subtotal + tax;
+
+  const save = (next) => { setCart(next); localStorage.setItem(CART_KEY, JSON.stringify(next)); window.dispatchEvent(new Event("eatalio-cart-updated")); };
+  const update = (id, quantity) => save(quantity <= 0 ? cart.filter((i) => i.id !== id) : cart.map((i) => i.id === id ? { ...i, quantity } : i));
+  const back = () => navigate(table ? `/menu?table=${encodeURIComponent(table)}` : "/menu");
+  const checkout = () => navigate(table ? `/checkout?table=${encodeURIComponent(table)}` : "/checkout");
+
+  return (
+    <div className="min-h-screen bg-[#fafaf9] pb-8 text-slate-950">
+      <header className="border-b border-slate-200/70 bg-[#fafaf9]">
+        <div className="mx-auto flex h-16 max-w-3xl items-center px-5 sm:px-8"><button onClick={back} className="mr-3 rounded-full p-2 hover:bg-slate-100"><ArrowLeft size={20} /></button><h1 className="text-lg font-semibold">Your Cart</h1></div>
+      </header>
+      <main className="mx-auto max-w-3xl px-5 py-7 sm:px-8">
+        {table && <span className="inline-flex rounded-full bg-white px-3 py-1.5 text-xs font-medium text-slate-600 ring-1 ring-slate-200">🍽️ Dine In · {table}</span>}
+        {cart.length === 0 ? (
+          <div className="mt-16 text-center"><div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-white ring-1 ring-slate-200"><ShoppingBag size={25} /></div><h2 className="mt-5 text-xl font-semibold">Your cart is empty</h2><p className="mt-1 text-sm text-slate-500">Add something delicious from the menu.</p><button onClick={back} className="mt-6 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white">Browse Menu</button></div>
+        ) : (
+          <>
+            <div className="mt-5 divide-y divide-slate-200 rounded-2xl bg-white px-4 ring-1 ring-slate-200/70 sm:px-5">
+              {cart.map((item) => <div key={item.id} className="flex gap-4 py-4"><div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-slate-100">{item.image && <img src={item.image} alt="" className="h-full w-full object-cover" />}</div><div className="min-w-0 flex-1"><div className="flex justify-between gap-3"><p className="font-semibold">{item.name}</p><p className="font-semibold">{price(Number(item.price) * item.quantity)}</p></div><p className="mt-1 text-sm text-slate-500">{price(item.price)} each</p><div className="mt-3 flex items-center gap-2"><button onClick={() => update(item.id, item.quantity - 1)} className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-50 ring-1 ring-slate-200">{item.quantity === 1 ? <Trash2 size={14} /> : <Minus size={15} />}</button><span className="w-5 text-center text-sm font-semibold">{item.quantity}</span><button onClick={() => update(item.id, item.quantity + 1)} className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-50 ring-1 ring-slate-200"><Plus size={15} /></button></div></div></div>)}
+            </div>
+            <button onClick={back} className="mt-5 text-sm font-semibold text-slate-700">+ Add more items</button>
+            <div className="mt-8 rounded-2xl bg-white p-5 ring-1 ring-slate-200/70"><h2 className="font-semibold">Order summary</h2><div className="mt-4 space-y-3 text-sm"><div className="flex justify-between"><span className="text-slate-500">Subtotal</span><span>{price(subtotal)}</span></div><div className="flex justify-between"><span className="text-slate-500">GST ({taxPercent}%)</span><span>{price(tax)}</span></div><div className="flex justify-between border-t border-slate-100 pt-3 text-base font-semibold"><span>Total</span><span>{price(total)}</span></div></div></div>
+            <button onClick={checkout} className="mt-5 h-12 w-full rounded-2xl bg-slate-950 text-sm font-semibold text-white">Continue to Checkout →</button>
+          </>
+        )}
+      </main>
+    </div>
+  );
+}
