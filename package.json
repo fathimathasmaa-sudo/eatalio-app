@@ -1,14 +1,16 @@
 {
-  "name": "dmos",
+  "name": "eatalio-app",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "env-check": "node src/scripts/env-check.js"
+    "preview": "vite preview"
   },
   "dependencies": {
     "firebase": "^12.1.0",
