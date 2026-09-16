@@ -4,7 +4,7 @@ import RoleSelect from "./pages/LoginSelection";
 import AdminLogin from "./pages/AdminLogin";
 import StaffLogin from "./pages/StaffLogin";
 import AdminDashboard from "./pages/AdminDashboard";
-import StaffDashboard from "./pages/StaffDashboard";
+import StaffOrders from "./pages/StaffOrders";
 import CustomerHome from "./pages/CustomerHome";
 import CustomerMenu from "./pages/CustomerMenu";
 import CustomerCart from "./pages/CustomerCart";
@@ -12,25 +12,22 @@ import CustomerCheckout from "./pages/CustomerCheckout";
 import CustomerOrders from "./pages/CustomerOrders";
 import CustomerOrder from "./pages/CustomerOrder";
 import KitchenView from "./pages/KitchenView";
-import StaffOrders from "./pages/StaffOrders";
+import AdminOperations from "./pages/AdminOperations";
 
 export default function App() {
-  return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<CustomerHome />} />
-        <Route path="/login" element={<RoleSelect />} />
-        <Route path="/AdminLogin" element={<AdminLogin />} />
-        <Route path="/StaffLogin" element={<StaffLogin />} />
-        <Route path="/admin/dashboard" element={<AdminDashboard />} />
-        <Route path="/staff-dashboard" element={<StaffOrders />} />
-        <Route path="/kitchen" element={<KitchenView />} />
-        <Route path="/menu" element={<CustomerMenu />} />
-        <Route path="/cart" element={<CustomerCart />} />
-        <Route path="/checkout" element={<CustomerCheckout />} />
-        <Route path="/orders" element={<CustomerOrders />} />
-        <Route path="/order/:id" element={<CustomerOrder />} />
-      </Routes>
-    </Router>
-  );
+  return <Router><Routes>
+    <Route path="/" element={<CustomerHome />} />
+    <Route path="/login" element={<RoleSelect />} />
+    <Route path="/AdminLogin" element={<AdminLogin />} />
+    <Route path="/StaffLogin" element={<StaffLogin />} />
+    <Route path="/admin/dashboard" element={<AdminDashboard />} />
+    <Route path="/admin/operations" element={<AdminOperations />} />
+    <Route path="/staff-dashboard" element={<StaffOrders />} />
+    <Route path="/kitchen" element={<KitchenView />} />
+    <Route path="/menu" element={<CustomerMenu />} />
+    <Route path="/cart" element={<CustomerCart />} />
+    <Route path="/checkout" element={<CustomerCheckout />} />
+    <Route path="/orders" element={<CustomerOrders />} />
+    <Route path="/order/:id" element={<CustomerOrder />} />
+  </Routes></Router>;
 }
