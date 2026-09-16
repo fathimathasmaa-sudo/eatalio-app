@@ -7,6 +7,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import StaffDashboard from "./pages/StaffDashboard";
 import CustomerHome from "./pages/CustomerHome";
 import CustomerMenu from "./pages/CustomerMenu";
+import CustomerCart from "./pages/CustomerCart";
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
         <Route path="/staff-dashboard" element={<StaffDashboard />} />
         <Route path="/menu" element={<CustomerMenu />} />
+        <Route path="/cart" element={<CustomerCart />} />
       </Routes>
     </Router>
   );
