@@ -5,13 +5,15 @@ import AdminLogin from "./pages/AdminLogin";
 import StaffLogin from "./pages/StaffLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import StaffDashboard from "./pages/StaffDashboard";
+import CustomerHome from "./pages/CustomerHome";
 import CustomerMenu from "./pages/CustomerMenu";
 
 export default function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<RoleSelect />} />
+        <Route path="/" element={<CustomerHome />} />
+        <Route path="/login" element={<RoleSelect />} />
         <Route path="/AdminLogin" element={<AdminLogin />} />
         <Route path="/StaffLogin" element={<StaffLogin />} />
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
