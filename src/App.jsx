@@ -10,6 +10,7 @@ import AdminDeliveryPayments from "./pages/AdminDeliveryPayments";
 import AdminTables from "./pages/AdminTables";
 import AdminSettings from "./pages/AdminSettings";
 import AdminStaff from "./pages/AdminStaff";
+import AdminReports from "./pages/AdminReports";
 import StaffOrders from "./pages/StaffOrders";
 import CustomerHome from "./pages/CustomerHome";
 import CustomerMenu from "./pages/CustomerMenu";
@@ -32,6 +33,7 @@ export default function App() {
     <Route path="/admin/tables" element={<AdminTables />} />
     <Route path="/admin/settings" element={<AdminSettings />} />
     <Route path="/admin/staff" element={<AdminStaff />} />
+    <Route path="/admin/reports" element={<AdminReports />} />
     <Route path="/staff-dashboard" element={<StaffOrders />} />
     <Route path="/kitchen" element={<KitchenView />} />
     <Route path="/menu" element={<CustomerMenu />} />
