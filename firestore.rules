@@ -4,42 +4,33 @@ service cloud.firestore {
     function signedIn() { return request.auth != null; }
     function hasStaffDoc() { return signedIn() && exists(/databases/$(database)/documents/staff/$(request.auth.uid)); }
     function staffDoc() { return get(/databases/$(database)/documents/staff/$(request.auth.uid)); }
-    function isAdmin() { return hasStaffDoc() && (staffDoc().data.role == 'admin' || staffDoc().data.Role == 'admin' || staffDoc().data.userRole == 'admin' || staffDoc().data.isAdmin == true); }
-    function isStaff() { return hasStaffDoc() && (isAdmin() || staffDoc().data.role == 'staff' || staffDoc().data.Role == 'staff' || staffDoc().data.userRole == 'staff'); }
-    function isKitchen() { return hasStaffDoc() && (isAdmin() || staffDoc().data.role == 'kitchen' || staffDoc().data.Role == 'kitchen' || staffDoc().data.userRole == 'kitchen'); }
+    function activeStaff() { return hasStaffDoc() && staffDoc().data.active != false; }
+    function isAdmin() { return activeStaff() && (staffDoc().data.role == 'admin' || staffDoc().data.Role == 'admin' || staffDoc().data.userRole == 'admin' || staffDoc().data.isAdmin == true); }
+    function isStaff() { return activeStaff() && (isAdmin() || staffDoc().data.role == 'staff' || staffDoc().data.Role == 'staff' || staffDoc().data.userRole == 'staff'); }
+    function isKitchen() { return activeStaff() && (isAdmin() || staffDoc().data.role == 'kitchen' || staffDoc().data.Role == 'kitchen' || staffDoc().data.userRole == 'kitchen'); }
     function isCustomerOwner(data) { return signedIn() && (data.guestSessionId == request.auth.uid || data.customerId == request.auth.uid); }
 
     match /settings/{id} {
       allow read: if id == 'app';
       allow write: if isAdmin();
     }
-
     match /menu/{id} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
     }
-
     match /categories/{id} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
     }
-
     match /tables/{id} {
       allow get: if signedIn();
       allow list: if isStaff() || isKitchen();
       allow create, delete: if isAdmin();
-      allow update: if isAdmin() || (signedIn()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'currentSessionId', 'currentSessionStatus', 'currentSessionStartedAt'
-        ])
-        && request.resource.data.currentSessionStatus == 'open');
+      allow update: if isAdmin() || (signedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentSessionId', 'currentSessionStatus', 'currentSessionStartedAt']) && request.resource.data.currentSessionStatus == 'open');
     }
-
     match /tableSessions/{id} {
       allow read: if isStaff();
-      allow create: if signedIn()
-        && request.resource.data.createdByGuestId == request.auth.uid
-        && request.resource.data.status == 'open';
+      allow create: if signedIn() && request.resource.data.createdByGuestId == request.auth.uid && request.resource.data.status == 'open';
       allow update: if isStaff();
       allow delete: if isAdmin();
       match /orders/{orderId} {
@@ -48,24 +39,18 @@ service cloud.firestore {
         allow update, delete: if isStaff();
       }
     }
-
     match /orders/{id} {
-      allow create: if signedIn()
-        && request.resource.data.guestSessionId == request.auth.uid
-        && request.resource.data.orderStatus == 'Received'
-        && (request.resource.data.customerId == null || request.resource.data.customerId == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.guestSessionId == request.auth.uid && request.resource.data.orderStatus == 'Received' && (request.resource.data.customerId == null || request.resource.data.customerId == request.auth.uid);
       allow get: if isStaff() || isKitchen() || isCustomerOwner(resource.data);
       allow list: if isStaff() || isKitchen() || (signedIn() && resource.data.guestSessionId == request.auth.uid);
       allow update: if isStaff() || isKitchen();
       allow delete: if isAdmin();
     }
-
     match /staff/{uid} {
       allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
       allow list: if isAdmin();
       allow create, update, delete: if isAdmin();
     }
-
     match /activityLogs/{id} {
       allow read: if isAdmin();
       allow create: if isStaff();
