@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import RoleSelect from "./pages/LoginSelection";
 import AdminLogin from "./pages/AdminLogin";
@@ -23,6 +23,7 @@ import KitchenView from "./pages/KitchenView";
 class RouteErrorBoundary extends React.Component {
   state = { error: null };
   static getDerivedStateFromError(error) { return { error }; }
+  componentDidCatch(error, info) { console.error("Eatalio customer route error", error, info); }
   componentDidUpdate(previousProps) {
     if (previousProps.routeKey !== this.props.routeKey && this.state.error) this.setState({ error: null });
   }
@@ -42,6 +43,20 @@ class RouteErrorBoundary extends React.Component {
 
 function AppRoutes() {
   const location = useLocation();
+  useEffect(() => {
+    const handleCustomerTabClick = (event) => {
+      const link = event.target.closest?.("a[data-customer-tab]");
+      if (!link || event.defaultPrevented) return;
+      if (link.origin !== window.location.origin) return;
+      const target = `${link.pathname}${link.search}${link.hash}`;
+      const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      if (target === current) return;
+      event.preventDefault();
+      window.location.assign(target);
+    };
+    document.addEventListener("click", handleCustomerTabClick, true);
+    return () => document.removeEventListener("click", handleCustomerTabClick, true);
+  }, []);
   return (
     <RouteErrorBoundary routeKey={`${location.pathname}${location.search}`}>
       <Routes>
