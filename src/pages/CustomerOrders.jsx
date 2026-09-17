@@ -4,25 +4,334 @@ import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import { db, ensureCustomerAuth } from "../firebaseConfig";
 
-function money(v){return `MVR ${Number(v||0).toFixed(0)}`}
-function typeLabel(t){return t==="dine-in"?"Dine In":t==="delivery"?"Delivery":"Takeaway"}
-function statusLabel(order){const s=order.orderStatus||order.status||"Received";return s==="Pending"?"Received":s}
-function dateText(value){const d=value?.toDate?value.toDate():value?new Date(value):null;return d&&!Number.isNaN(d.getTime())?d.toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"}):""}
-function sortOrders(list){return [...list].sort((a,b)=>(b.createdAt?.seconds||b.timestamp?.seconds||0)-(a.createdAt?.seconds||a.timestamp?.seconds||0))}
-
-export default function CustomerOrders(){
- const navigate=useNavigate(); const [orders,setOrders]=useState([]); const [uid,setUid]=useState("");
- useEffect(()=>{let unsub=()=>{};ensureCustomerAuth().then(user=>{setUid(user.uid);unsub=onSnapshot(query(collection(db,"orders"),where("guestSessionId","==",user.uid)),snap=>setOrders(sortOrders(snap.docs.map(d=>({id:d.id,...d.data()})))),e=>console.error(e))}).catch(e=>console.error(e));return()=>unsub()},[]);
- const active=useMemo(()=>orders.filter(o=>!["Completed","Cancelled","Canceled"].includes(statusLabel(o))),[orders]);
- const previous=useMemo(()=>orders.filter(o=>["Completed","Cancelled","Canceled"].includes(statusLabel(o))),[orders]);
- const activeDineIn=useMemo(()=>{const groups=new Map();active.filter(o=>o.orderType==="dine-in").forEach(o=>{const key=o.tableSessionId||`order:${o.id}`;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(o)});return [...groups.values()].map(list=>sortOrders(list)).sort((a,b)=>(b[0]?.createdAt?.seconds||b[0]?.timestamp?.seconds||0)-(a[0]?.createdAt?.seconds||a[0]?.timestamp?.seconds||0))},[active]);
- const otherActive=useMemo(()=>active.filter(o=>o.orderType!=="dine-in"),[active]);
- const home=()=>navigate("/"),menu=()=>navigate("/menu"),cart=()=>navigate("/cart");
- return <div className="min-h-screen bg-[#fafaf9] pb-24 text-slate-950"><header className="sticky top-0 z-30 border-b border-slate-200/70 bg-[#fafaf9]/95 backdrop-blur"><div className="mx-auto flex h-16 max-w-4xl items-center px-5 sm:px-8"><button onClick={home} className="mr-3 rounded-full p-2 hover:bg-slate-100"><ArrowLeft size={20}/></button><h1 className="text-lg font-semibold">My Orders</h1></div></header><main className="mx-auto max-w-4xl px-5 py-7 sm:px-8">{!uid?<div className="rounded-2xl bg-white p-8 text-center ring-1 ring-slate-200"><p className="text-sm text-slate-500">Loading your orders…</p></div>:<>{active.length>0&&<section><div className="mb-4 flex items-end justify-between"><div><p className="text-sm font-medium text-slate-400">Right now</p><h2 className="text-2xl font-semibold tracking-tight">Active orders</h2></div><span className="rounded-full bg-slate-950 px-2.5 py-1 text-xs font-semibold text-white">{active.length}</span></div><div className="space-y-4">{activeDineIn.map(group=><DineInSessionCard key={group[0].tableSessionId||group[0].id} orders={group} onOrder={id=>navigate(`/order/${id}`)} onAdd={()=>navigate(`/menu?table=${encodeURIComponent(group[0].tableNumber||"")}&tableId=${encodeURIComponent(group[0].tableId||"")}`)}/>)}{otherActive.map(order=><OrderCard key={order.id} order={order} onClick={()=>navigate(`/order/${order.id}`)}/>)}</div></section>}<section className={active.length?"mt-10":""}><h2 className="text-2xl font-semibold tracking-tight">Previous orders</h2>{previous.length===0?<div className="mt-4 rounded-2xl bg-white p-8 text-center ring-1 ring-slate-200"><PackageCheck className="mx-auto text-slate-300" size={28}/><p className="mt-3 font-semibold">No previous orders</p><p className="mt-1 text-sm text-slate-500">Your completed orders will appear here.</p></div>:<div className="mt-4 space-y-3">{previous.map(order=><OrderCard key={order.id} order={order} compact onClick={()=>navigate(`/order/${order.id}`)}/>)}</div>}</section></>}</main><nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur"><div className="mx-auto grid max-w-md grid-cols-4 px-2 py-2 text-[11px] font-medium text-slate-500"><button onClick={home} className="rounded-xl py-2">Home</button><button onClick={menu} className="rounded-xl py-2">Menu</button><button onClick={cart} className="rounded-xl py-2">Cart</button><button className="rounded-xl py-2 text-slate-950">My Orders</button></div></nav></div>
+function money(v) {
+  return `MVR ${Number(v || 0).toFixed(0)}`;
 }
 
-function DineInSessionCard({orders,onOrder,onAdd}){const table=orders[0]?.tableNumber||"your table",total=orders.reduce((s,o)=>s+Number(o.total||0),0),items=orders.reduce((s,o)=>s+(o.items||[]).reduce((n,i)=>n+Number(i.quantity||0),0),0),latest=statusLabel(orders[0]),statuses=orders.map(statusLabel);return <div className="rounded-2xl bg-white p-5 ring-1 ring-slate-200/70"><div className="flex items-start justify-between gap-4"><div><div className="flex items-center gap-2"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100"><Utensils size={17}/></span><div><p className="font-semibold">Current table order</p><p className="mt-0.5 text-xs text-slate-400">Table {table} · {orders.length} {orders.length===1?"order":"orders"}</p></div></div></div><span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-600">Dine In</span></div><div className="mt-5 grid grid-cols-3 gap-2 rounded-xl bg-slate-50 p-3 text-center"><div><p className="text-lg font-semibold">{items}</p><p className="text-[10px] text-slate-400">Items</p></div><div><p className="text-lg font-semibold">{money(total)}</p><p className="text-[10px] text-slate-400">Current total</p></div><div><p className="text-lg font-semibold">{statuses.filter(s=>s!=="Completed").length}</p><p className="text-[10px] text-slate-400">Active</p></div></div><div className="mt-4 space-y-2">{orders.map((o,i)=><button key={o.id} onClick={()=>onOrder(o.id)} className="flex w-full items-center justify-between rounded-xl p-3 text-left ring-1 ring-slate-200 hover:bg-slate-50"><div><p className="text-sm font-semibold">Order #{o.orderNumber||o.id.slice(-6).toUpperCase()}</p><p className="mt-1 text-xs text-slate-400">{statusLabel(o)} · {dateText(o.createdAt||o.timestamp)}</p></div><ChevronRight size={17} className="text-slate-400"/></button>)}</div><button onClick={onAdd} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 py-3 text-sm font-semibold text-white">Add more items</button><p className="mt-3 text-center text-xs text-slate-400">Latest status: {latest}</p></div>}
+function typeLabel(t) {
+  return t === "dine-in" ? "Dine In" : t === "delivery" ? "Delivery" : "Takeaway";
+}
 
-function OrderCard({order,compact,onClick}){const status=statusLabel(order),delivery=order.orderType==="delivery",type=typeLabel(order.orderType),itemCount=(order.items||[]).reduce((n,i)=>n+Number(i.quantity||0),0);return <button onClick={onClick} className="w-full rounded-2xl bg-white p-5 text-left ring-1 ring-slate-200/70 transition hover:ring-slate-300"><div className="flex items-start justify-between gap-4"><div><div className="flex items-center gap-2"><span className="text-sm font-bold">#{order.orderNumber||order.id.slice(-6).toUpperCase()}</span><span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600">{type}</span></div><p className="mt-1 text-xs text-slate-400">{itemCount} {itemCount===1?"item":"items"}{order.tableNumber?` · Table ${order.tableNumber}`:""}{dateText(order.createdAt||order.timestamp)?` · ${dateText(order.createdAt||order.timestamp)}`:""}</p></div><ChevronRight size={18} className="mt-1 text-slate-400"/></div>{!compact&&<><div className="mt-5 flex items-center gap-2 text-sm font-semibold"><StatusIcon status={status}/>{status}</div><Progress order={order} status={status}/>{delivery&&order.delivery?.area&&<p className="mt-4 flex items-center gap-2 text-xs text-slate-500"><MapPin size={14}/>{order.delivery.area}</p></>}<div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4"><span className="text-sm text-slate-500">Total</span><span className="font-semibold">{money(order.total)}</span></div></>}{compact&&<div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4"><span className="text-sm text-slate-500">Total</span><span className="font-semibold">{money(order.total)}</span></div>}</button>}
-function StatusIcon({status}){if(status==="Completed")return <CheckCircle2 size={17}/>;if(status==="Preparing")return <Clock3 size={17}/>;if(status==="Ready"||status==="Ready for Pickup")return <PackageCheck size={17}/>;return <ShoppingBag size={17}/>}
-function Progress({order,status}){const labels=order.orderType==="takeaway"?["Received","Accepted","Preparing","Ready for Pickup","Completed"]:order.orderType==="delivery"?["Received","Accepted","Preparing","Ready","Out for Delivery","Completed"]:["Received","Accepted","Preparing","Ready","Completed"];const idx=Math.max(0,labels.indexOf(status));return <div className="mt-5 flex items-start">{labels.map((label,i)=><div key={label} className="flex min-w-0 flex-1 items-start"><div className="flex w-full flex-col items-center"><div className={`h-2.5 w-2.5 rounded-full ${i<=idx?"bg-slate-950":"bg-slate-200"}`}/><span className={`mt-2 text-center text-[9px] leading-3 ${i===idx?"font-semibold text-slate-950":"text-slate-400"}`}>{label}</span></div>{i<labels.length-1&&<div className={`mt-1 h-px w-full ${i<idx?"bg-slate-950":"bg-slate-200"}`}/>}</div>)}</div>}
+function statusLabel(order) {
+  const status = order.orderStatus || order.status || "Received";
+  return status === "Pending" ? "Received" : status;
+}
+
+function dateText(value) {
+  const date = value?.toDate ? value.toDate() : value ? new Date(value) : null;
+  return date && !Number.isNaN(date.getTime())
+    ? date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })
+    : "";
+}
+
+function sortOrders(list) {
+  return [...list].sort(
+    (a, b) =>
+      (b.createdAt?.seconds || b.timestamp?.seconds || 0) -
+      (a.createdAt?.seconds || a.timestamp?.seconds || 0)
+  );
+}
+
+export default function CustomerOrders() {
+  const navigate = useNavigate();
+  const [orders, setOrders] = useState([]);
+  const [uid, setUid] = useState("");
+
+  useEffect(() => {
+    let unsubscribe = () => {};
+    ensureCustomerAuth()
+      .then((user) => {
+        setUid(user.uid);
+        unsubscribe = onSnapshot(
+          query(collection(db, "orders"), where("guestSessionId", "==", user.uid)),
+          (snapshot) => {
+            setOrders(sortOrders(snapshot.docs.map((item) => ({ id: item.id, ...item.data() }))));
+          },
+          (error) => console.error(error)
+        );
+      })
+      .catch((error) => console.error(error));
+
+    return () => unsubscribe();
+  }, []);
+
+  const active = useMemo(
+    () => orders.filter((order) => !["Completed", "Cancelled", "Canceled"].includes(statusLabel(order))),
+    [orders]
+  );
+
+  const previous = useMemo(
+    () => orders.filter((order) => ["Completed", "Cancelled", "Canceled"].includes(statusLabel(order))),
+    [orders]
+  );
+
+  const activeDineIn = useMemo(() => {
+    const groups = new Map();
+    active
+      .filter((order) => order.orderType === "dine-in")
+      .forEach((order) => {
+        const key = order.tableSessionId || `order:${order.id}`;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(order);
+      });
+
+    return [...groups.values()]
+      .map((group) => sortOrders(group))
+      .sort(
+        (a, b) =>
+          (b[0]?.createdAt?.seconds || b[0]?.timestamp?.seconds || 0) -
+          (a[0]?.createdAt?.seconds || a[0]?.timestamp?.seconds || 0)
+      );
+  }, [active]);
+
+  const otherActive = useMemo(
+    () => active.filter((order) => order.orderType !== "dine-in"),
+    [active]
+  );
+
+  const home = () => navigate("/");
+  const menu = () => navigate("/menu");
+  const cart = () => navigate("/cart");
+
+  return (
+    <div className="min-h-screen bg-[#fafaf9] pb-24 text-slate-950">
+      <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-[#fafaf9]/95 backdrop-blur">
+        <div className="mx-auto flex h-16 max-w-4xl items-center px-5 sm:px-8">
+          <button onClick={home} className="mr-3 rounded-full p-2 hover:bg-slate-100" aria-label="Back home">
+            <ArrowLeft size={20} />
+          </button>
+          <h1 className="text-lg font-semibold">My Orders</h1>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-4xl px-5 py-7 sm:px-8">
+        {!uid ? (
+          <div className="rounded-2xl bg-white p-8 text-center ring-1 ring-slate-200">
+            <p className="text-sm text-slate-500">Loading your orders…</p>
+          </div>
+        ) : (
+          <>
+            {active.length > 0 && (
+              <section>
+                <div className="mb-4 flex items-end justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-slate-400">Right now</p>
+                    <h2 className="text-2xl font-semibold tracking-tight">Active orders</h2>
+                  </div>
+                  <span className="rounded-full bg-slate-950 px-2.5 py-1 text-xs font-semibold text-white">
+                    {active.length}
+                  </span>
+                </div>
+
+                <div className="space-y-4">
+                  {activeDineIn.map((group) => (
+                    <DineInSessionCard
+                      key={group[0].tableSessionId || group[0].id}
+                      orders={group}
+                      onOrder={(id) => navigate(`/order/${id}`)}
+                      onAdd={() =>
+                        navigate(
+                          `/menu?table=${encodeURIComponent(group[0].tableNumber || "")}&tableId=${encodeURIComponent(group[0].tableId || "")}`
+                        )
+                      }
+                    />
+                  ))}
+
+                  {otherActive.map((order) => (
+                    <OrderCard
+                      key={order.id}
+                      order={order}
+                      onClick={() => navigate(`/order/${order.id}`)}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            <section className={active.length ? "mt-10" : ""}>
+              <h2 className="text-2xl font-semibold tracking-tight">Previous orders</h2>
+              {previous.length === 0 ? (
+                <div className="mt-4 rounded-2xl bg-white p-8 text-center ring-1 ring-slate-200">
+                  <PackageCheck className="mx-auto text-slate-300" size={28} />
+                  <p className="mt-3 font-semibold">No previous orders</p>
+                  <p className="mt-1 text-sm text-slate-500">Your completed orders will appear here.</p>
+                </div>
+              ) : (
+                <div className="mt-4 space-y-3">
+                  {previous.map((order) => (
+                    <OrderCard
+                      key={order.id}
+                      order={order}
+                      compact
+                      onClick={() => navigate(`/order/${order.id}`)}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          </>
+        )}
+      </main>
+
+      <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur">
+        <div className="mx-auto grid max-w-md grid-cols-4 px-2 py-2 text-[11px] font-medium text-slate-500">
+          <button onClick={home} className="rounded-xl py-2">Home</button>
+          <button onClick={menu} className="rounded-xl py-2">Menu</button>
+          <button onClick={cart} className="rounded-xl py-2">Cart</button>
+          <button className="rounded-xl py-2 text-slate-950">My Orders</button>
+        </div>
+      </nav>
+    </div>
+  );
+}
+
+function DineInSessionCard({ orders, onOrder, onAdd }) {
+  const table = orders[0]?.tableNumber || "your table";
+  const total = orders.reduce((sum, order) => sum + Number(order.total || 0), 0);
+  const items = orders.reduce(
+    (sum, order) => sum + (order.items || []).reduce((count, item) => count + Number(item.quantity || 0), 0),
+    0
+  );
+  const latest = statusLabel(orders[0]);
+  const activeCount = orders.filter((order) => !["Completed", "Cancelled", "Canceled"].includes(statusLabel(order))).length;
+
+  return (
+    <div className="rounded-2xl bg-white p-5 ring-1 ring-slate-200/70">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100">
+            <Utensils size={17} />
+          </span>
+          <div>
+            <p className="font-semibold">Current table order</p>
+            <p className="mt-0.5 text-xs text-slate-400">
+              Table {table} · {orders.length} {orders.length === 1 ? "order" : "orders"}
+            </p>
+          </div>
+        </div>
+        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-600">Dine In</span>
+      </div>
+
+      <div className="mt-5 grid grid-cols-3 gap-2 rounded-xl bg-slate-50 p-3 text-center">
+        <div>
+          <p className="text-lg font-semibold">{items}</p>
+          <p className="text-[10px] text-slate-400">Items</p>
+        </div>
+        <div>
+          <p className="text-lg font-semibold">{money(total)}</p>
+          <p className="text-[10px] text-slate-400">Current total</p>
+        </div>
+        <div>
+          <p className="text-lg font-semibold">{activeCount}</p>
+          <p className="text-[10px] text-slate-400">Active</p>
+        </div>
+      </div>
+
+      <div className="mt-4 space-y-2">
+        {orders.map((order) => (
+          <button
+            key={order.id}
+            onClick={() => onOrder(order.id)}
+            className="flex w-full items-center justify-between rounded-xl p-3 text-left ring-1 ring-slate-200 hover:bg-slate-50"
+          >
+            <div>
+              <p className="text-sm font-semibold">Order #{order.orderNumber || order.id.slice(-6).toUpperCase()}</p>
+              <p className="mt-1 text-xs text-slate-400">
+                {statusLabel(order)} · {dateText(order.createdAt || order.timestamp)}
+              </p>
+            </div>
+            <ChevronRight size={17} className="text-slate-400" />
+          </button>
+        ))}
+      </div>
+
+      <button onClick={onAdd} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 py-3 text-sm font-semibold text-white">
+        Add more items
+      </button>
+      <p className="mt-3 text-center text-xs text-slate-400">Latest status: {latest}</p>
+    </div>
+  );
+}
+
+function OrderCard({ order, compact, onClick }) {
+  const status = statusLabel(order);
+  const delivery = order.orderType === "delivery";
+  const itemCount = (order.items || []).reduce((count, item) => count + Number(item.quantity || 0), 0);
+
+  return (
+    <button onClick={onClick} className="w-full rounded-2xl bg-white p-5 text-left ring-1 ring-slate-200/70 transition hover:ring-slate-300">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold">#{order.orderNumber || order.id.slice(-6).toUpperCase()}</span>
+            <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600">
+              {typeLabel(order.orderType)}
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-slate-400">
+            {itemCount} {itemCount === 1 ? "item" : "items"}
+            {order.tableNumber ? ` · Table ${order.tableNumber}` : ""}
+            {dateText(order.createdAt || order.timestamp) ? ` · ${dateText(order.createdAt || order.timestamp)}` : ""}
+          </p>
+        </div>
+        <ChevronRight size={18} className="mt-1 text-slate-400" />
+      </div>
+
+      {!compact && (
+        <>
+          <div className="mt-5 flex items-center gap-2 text-sm font-semibold">
+            <StatusIcon status={status} />
+            {status}
+          </div>
+          <Progress order={order} status={status} />
+          {delivery && order.delivery?.area && (
+            <p className="mt-4 flex items-center gap-2 text-xs text-slate-500">
+              <MapPin size={14} />
+              {order.delivery.area}
+            </p>
+          )}
+        </>
+      )}
+
+      <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
+        <span className="text-sm text-slate-500">Total</span>
+        <span className="font-semibold">{money(order.total)}</span>
+      </div>
+    </button>
+  );
+}
+
+function StatusIcon({ status }) {
+  if (status === "Completed") return <CheckCircle2 size={17} />;
+  if (status === "Preparing") return <Clock3 size={17} />;
+  if (status === "Ready" || status === "Ready for Pickup") return <PackageCheck size={17} />;
+  return <ShoppingBag size={17} />;
+}
+
+function Progress({ order, status }) {
+  const labels =
+    order.orderType === "takeaway"
+      ? ["Received", "Accepted", "Preparing", "Ready for Pickup", "Completed"]
+      : order.orderType === "delivery"
+        ? ["Received", "Accepted", "Preparing", "Ready", "Out for Delivery", "Completed"]
+        : ["Received", "Accepted", "Preparing", "Ready", "Completed"];
+  const index = Math.max(0, labels.indexOf(status));
+
+  return (
+    <div className="mt-5 flex items-start">
+      {labels.map((label, i) => (
+        <div key={label} className="flex min-w-0 flex-1 items-start">
+          <div className="flex w-full flex-col items-center">
+            <div className={`h-2.5 w-2.5 rounded-full ${i <= index ? "bg-slate-950" : "bg-slate-200"}`} />
+            <span className={`mt-2 text-center text-[9px] leading-3 ${i === index ? "font-semibold text-slate-950" : "text-slate-400"}`}>
+              {label}
+            </span>
+          </div>
+          {i < labels.length - 1 && (
+            <div className={`mt-1 h-px w-full ${i < index ? "bg-slate-950" : "bg-slate-200"}`} />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
