@@ -4,8 +4,9 @@ service firebase.storage {
     function signedIn() { return request.auth != null; }
     function hasStaffDoc() { return signedIn() && firestore.exists(/databases/(default)/documents/staff/$(request.auth.uid)); }
     function staffDoc() { return firestore.get(/databases/(default)/documents/staff/$(request.auth.uid)); }
-    function isAdmin() { return hasStaffDoc() && (staffDoc().data.role == 'admin' || staffDoc().data.Role == 'admin' || staffDoc().data.userRole == 'admin' || staffDoc().data.isAdmin == true); }
-    function isStaff() { return hasStaffDoc() && (isAdmin() || staffDoc().data.role == 'staff' || staffDoc().data.Role == 'staff' || staffDoc().data.userRole == 'staff'); }
+    function activeStaff() { return hasStaffDoc() && staffDoc().data.active != false; }
+    function isAdmin() { return activeStaff() && (staffDoc().data.role == 'admin' || staffDoc().data.Role == 'admin' || staffDoc().data.userRole == 'admin' || staffDoc().data.isAdmin == true); }
+    function isStaff() { return activeStaff() && (isAdmin() || staffDoc().data.role == 'staff' || staffDoc().data.Role == 'staff' || staffDoc().data.userRole == 'staff'); }
 
     match /payment-slips/{uid}/{fileName} {
       allow write: if signedIn() && request.auth.uid == uid
@@ -17,8 +18,7 @@ service firebase.storage {
 
     match /menu/{fileName} {
       allow read: if true;
-      allow write: if isAdmin();
-      allow delete: if isAdmin();
+      allow write, delete: if isAdmin();
     }
   }
 }
