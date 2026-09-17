@@ -10,23 +10,14 @@ service cloud.firestore {
     function isKitchen() { return activeStaff() && (isAdmin() || staffDoc().data.role == 'kitchen' || staffDoc().data.Role == 'kitchen' || staffDoc().data.userRole == 'kitchen'); }
     function isCustomerOwner(data) { return signedIn() && (data.guestSessionId == request.auth.uid || data.customerId == request.auth.uid); }
 
-    match /settings/{id} {
-      allow read: if id == 'app';
-      allow write: if isAdmin();
-    }
-    match /menu/{id} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin();
-    }
-    match /categories/{id} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin();
-    }
+    match /settings/{id} { allow read: if id == 'app'; allow write: if isAdmin(); }
+    match /menu/{id} { allow read: if true; allow create, update, delete: if isAdmin(); }
+    match /categories/{id} { allow read: if true; allow create, update, delete: if isAdmin(); }
     match /tables/{id} {
       allow get: if signedIn();
       allow list: if isStaff() || isKitchen();
       allow create, delete: if isAdmin();
-      allow update: if isAdmin() || (signedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentSessionId', 'currentSessionStatus', 'currentSessionStartedAt']) && request.resource.data.currentSessionStatus == 'open');
+      allow update: if isAdmin() || (signedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentSessionId','currentSessionStatus','currentSessionStartedAt']) && request.resource.data.currentSessionStatus == 'open');
     }
     match /tableSessions/{id} {
       allow read: if isStaff();
@@ -42,19 +33,15 @@ service cloud.firestore {
     match /orders/{id} {
       allow create: if signedIn() && request.resource.data.guestSessionId == request.auth.uid && request.resource.data.orderStatus == 'Received' && (request.resource.data.customerId == null || request.resource.data.customerId == request.auth.uid);
       allow get: if isStaff() || isKitchen() || isCustomerOwner(resource.data);
-      allow list: if isStaff() || isKitchen() || (signedIn() && resource.data.guestSessionId == request.auth.uid);
+      allow list: if isStaff() || (signedIn() && resource.data.guestSessionId == request.auth.uid);
       allow update: if isStaff() || isKitchen();
       allow delete: if isAdmin();
     }
-    match /staff/{uid} {
-      allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
-      allow list: if isAdmin();
-      allow create, update, delete: if isAdmin();
+    match /kitchenOrders/{id} {
+      allow read: if isKitchen();
+      allow create, update, delete: if false;
     }
-    match /activityLogs/{id} {
-      allow read: if isAdmin();
-      allow create: if isStaff();
-      allow update, delete: if isAdmin();
-    }
+    match /staff/{uid} { allow get: if signedIn() && (request.auth.uid == uid || isAdmin()); allow list: if isAdmin(); allow create, update, delete: if isAdmin(); }
+    match /activityLogs/{id} { allow read: if isAdmin(); allow create: if isStaff(); allow update, delete: if isAdmin(); }
   }
 }
