@@ -1,0 +1,70 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function staffDoc() { return get(/databases/$(database)/documents/staff/$(request.auth.uid)); }
+    function isAdmin() { return signedIn() && (staffDoc().data.role == 'admin' || staffDoc().data.Role == 'admin' || staffDoc().data.userRole == 'admin' || staffDoc().data.isAdmin == true); }
+    function isStaff() { return signedIn() && (isAdmin() || staffDoc().data.role == 'staff' || staffDoc().data.Role == 'staff' || staffDoc().data.userRole == 'staff'); }
+    function isKitchen() { return signedIn() && (isAdmin() || staffDoc().data.role == 'kitchen' || staffDoc().data.Role == 'kitchen' || staffDoc().data.userRole == 'kitchen'); }
+    function isCustomerOwner(data) { return signedIn() && (data.guestSessionId == request.auth.uid || data.customerId == request.auth.uid); }
+
+    match /settings/{id} {
+      allow read: if id == 'app';
+      allow write: if isAdmin();
+    }
+
+    match /menu/{id} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /categories/{id} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /tables/{id} {
+      allow read: if signedIn();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (signedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'currentSessionId', 'currentSessionStatus', 'currentSessionStartedAt'
+        ]));
+    }
+
+    match /tableSessions/{id} {
+      allow read: if isStaff();
+      allow create: if signedIn();
+      allow update: if isStaff() || (signedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']));
+      allow delete: if isAdmin();
+      match /orders/{orderId} {
+        allow read: if isStaff();
+        allow create: if signedIn();
+        allow update, delete: if isStaff();
+      }
+    }
+
+    match /orders/{id} {
+      allow create: if signedIn()
+        && request.resource.data.guestSessionId == request.auth.uid
+        && request.resource.data.orderStatus == 'Received';
+      allow get: if isStaff() || isKitchen() || isCustomerOwner(resource.data);
+      allow list: if isStaff() || isKitchen();
+      allow update: if isStaff() || isKitchen() || (isCustomerOwner(resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([]));
+      allow delete: if isAdmin();
+    }
+
+    match /staff/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /activityLogs/{id} {
+      allow read: if isAdmin();
+      allow create: if isStaff();
+      allow update, delete: if isAdmin();
+    }
+  }
+}
