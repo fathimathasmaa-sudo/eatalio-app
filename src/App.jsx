@@ -4,6 +4,12 @@ import RoleSelect from "./pages/LoginSelection";
 import AdminLogin from "./pages/AdminLogin";
 import StaffLogin from "./pages/StaffLogin";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminOperations from "./pages/AdminOperations";
+import AdminMenu from "./pages/AdminMenu";
+import AdminDeliveryPayments from "./pages/AdminDeliveryPayments";
+import AdminTables from "./pages/AdminTables";
+import AdminSettings from "./pages/AdminSettings";
+import AdminStaff from "./pages/AdminStaff";
 import StaffOrders from "./pages/StaffOrders";
 import CustomerHome from "./pages/CustomerHome";
 import CustomerMenu from "./pages/CustomerMenu";
@@ -12,10 +18,6 @@ import CustomerCheckout from "./pages/CustomerCheckout";
 import CustomerOrders from "./pages/CustomerOrders";
 import CustomerOrder from "./pages/CustomerOrder";
 import KitchenView from "./pages/KitchenView";
-import AdminOperations from "./pages/AdminOperations";
-import AdminMenu from "./pages/AdminMenu";
-import AdminDeliveryPayments from "./pages/AdminDeliveryPayments";
-import AdminTables from "./pages/AdminTables";
 
 export default function App() {
   return <Router><Routes>
@@ -28,6 +30,8 @@ export default function App() {
     <Route path="/admin/menu" element={<AdminMenu />} />
     <Route path="/admin/delivery-payments" element={<AdminDeliveryPayments />} />
     <Route path="/admin/tables" element={<AdminTables />} />
+    <Route path="/admin/settings" element={<AdminSettings />} />
+    <Route path="/admin/staff" element={<AdminStaff />} />
     <Route path="/staff-dashboard" element={<StaffOrders />} />
     <Route path="/kitchen" element={<KitchenView />} />
     <Route path="/menu" element={<CustomerMenu />} />
