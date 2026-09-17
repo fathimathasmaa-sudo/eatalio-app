@@ -3,7 +3,7 @@ import { ArrowLeft, CheckCircle2, ChevronRight, Clock3, MapPin, PackageCheck, Sh
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { Link, useNavigate } from "react-router-dom";
 import { db, ensureCustomerAuth } from "../firebaseConfig";
-function money(v){return `MVR ${Number(v||0).toFixed(0)}`}
+function money(v){return `MVR ${Number(v||0).toFixed(2)}`}
 function typeLabel(t){return t==="dine-in"?"Dine In":t==="delivery"?"Delivery":"Takeaway"}
 function statusLabel(order){const status=order.orderStatus||order.status||"Received";return status==="Pending"?"Received":status}
 function dateText(value){const date=value?.toDate?value.toDate():value?new Date(value):null;return date&&!Number.isNaN(date.getTime())?date.toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"}):""}
