@@ -11,7 +11,10 @@ service cloud.firestore {
     function isCustomerOwner(data) { return signedIn() && (data.guestSessionId == request.auth.uid || data.customerId == request.auth.uid); }
     function validOrderStatus(s) { return s in ['Received','Accepted','Preparing','Ready','Ready for Pickup','Out for Delivery','Completed','Cancelled','Canceled']; }
     function statusFieldsMatch() { return request.resource.data.orderStatus == request.resource.data.status; }
-    function notBackToReceived() { return request.resource.data.orderStatus != 'Received' || resource.data.orderStatus == 'Received'; }
+    function adminStaffStatusAllowed() {
+      return (resource.data.orderStatus == 'Received' && request.resource.data.orderStatus in ['Accepted','Cancelled','Canceled'])
+        || (resource.data.orderStatus != 'Received' && request.resource.data.orderStatus != 'Received');
+    }
     function kitchenForwardOnly() {
       return (resource.data.orderStatus == 'Accepted' && request.resource.data.orderStatus == 'Preparing')
         || (resource.data.orderStatus == 'Preparing' && request.resource.data.orderStatus in ['Ready','Ready for Pickup']);
@@ -25,78 +28,32 @@ service cloud.firestore {
       allow get: if signedIn();
       allow list: if isStaff() || isKitchen();
       allow create, delete: if isAdmin();
-      allow update: if isAdmin() || (
-        signedIn()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentSessionId','currentSessionStatus','currentSessionStartedAt'])
-        && request.resource.data.currentSessionStatus == 'open'
-        && resource.data.currentSessionStatus != 'open'
-        && request.resource.data.currentSessionId is string
-        && request.resource.data.currentSessionId.size() > 0
-      );
+      allow update: if isAdmin() || (signedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentSessionId','currentSessionStatus','currentSessionStartedAt']) && request.resource.data.currentSessionStatus == 'open' && resource.data.currentSessionStatus != 'open' && request.resource.data.currentSessionId is string && request.resource.data.currentSessionId.size() > 0);
     }
 
     match /tableSessions/{id} {
       allow read: if isStaff();
-      allow create: if signedIn()
-        && request.resource.data.createdByGuestId == request.auth.uid
-        && request.resource.data.status == 'open'
-        && request.resource.data.tableId is string
-        && request.resource.data.tableId.size() > 0
-        && get(/databases/$(database)/documents/tables/$(request.resource.data.tableId)).data.currentSessionId == id
-        && get(/databases/$(database)/documents/tables/$(request.resource.data.tableId)).data.currentSessionStatus == 'open';
+      allow create: if signedIn() && request.resource.data.createdByGuestId == request.auth.uid && request.resource.data.status == 'open' && request.resource.data.tableId is string && request.resource.data.tableId.size() > 0 && get(/databases/$(database)/documents/tables/$(request.resource.data.tableId)).data.currentSessionId == id && get(/databases/$(database)/documents/tables/$(request.resource.data.tableId)).data.currentSessionStatus == 'open';
       allow update: if isStaff();
       allow delete: if isAdmin();
       match /orders/{orderId} {
         allow read: if isStaff();
-        allow create: if signedIn()
-          && request.resource.data.guestSessionId == request.auth.uid
-          && get(/databases/$(database)/documents/tableSessions/$(id)).data.status == 'open';
+        allow create: if signedIn() && request.resource.data.guestSessionId == request.auth.uid && get(/databases/$(database)/documents/tableSessions/$(id)).data.status == 'open';
         allow update, delete: if isStaff();
       }
     }
 
     match /orders/{id} {
-      allow create: if signedIn()
-        && request.resource.data.guestSessionId == request.auth.uid
-        && request.resource.data.orderStatus == 'Received'
-        && request.resource.data.status == 'Pending'
-        && validOrderStatus(request.resource.data.orderStatus)
-        && (request.resource.data.customerId == null || request.resource.data.customerId == request.auth.uid)
-        && request.resource.data.orderType in ['dine-in','takeaway','delivery']
-        && (
-          (request.resource.data.orderType == 'dine-in'
-            && request.resource.data.tableId is string
-            && request.resource.data.tableId.size() > 0
-            && request.resource.data.tableSessionId is string
-            && request.resource.data.tableSessionId.size() > 0
-            && get(/databases/$(database)/documents/tableSessions/$(request.resource.data.tableSessionId)).data.tableId == request.resource.data.tableId
-            && get(/databases/$(database)/documents/tableSessions/$(request.resource.data.tableSessionId)).data.status == 'open')
-          || request.resource.data.orderType != 'dine-in'
-        );
+      allow create: if signedIn() && request.resource.data.guestSessionId == request.auth.uid && request.resource.data.orderStatus == 'Received' && request.resource.data.status == 'Pending' && validOrderStatus(request.resource.data.orderStatus) && (request.resource.data.customerId == null || request.resource.data.customerId == request.auth.uid) && request.resource.data.orderType in ['dine-in','takeaway','delivery'] && ((request.resource.data.orderType == 'dine-in' && request.resource.data.tableId is string && request.resource.data.tableId.size() > 0 && request.resource.data.tableSessionId is string && request.resource.data.tableSessionId.size() > 0 && get(/databases/$(database)/documents/tableSessions/$(request.resource.data.tableSessionId)).data.tableId == request.resource.data.tableId && get(/databases/$(database)/documents/tableSessions/$(request.resource.data.tableSessionId)).data.status == 'open') || request.resource.data.orderType != 'dine-in');
       allow get: if isStaff() || isKitchen() || isCustomerOwner(resource.data);
       allow list: if isStaff() || (signedIn() && resource.data.guestSessionId == request.auth.uid);
-      allow update: if (isAdmin()
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['orderStatus','status','updatedAt','payment','paymentMethod','updatedBy','updatedByRole','paymentStatus','reviewedBy','reviewedAt'])
-          && validOrderStatus(request.resource.data.orderStatus)
-          && statusFieldsMatch()
-          && notBackToReceived())
-        || (isStaff()
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['orderStatus','status','updatedAt','payment','paymentMethod','updatedBy','updatedByRole','paymentStatus','reviewedBy','reviewedAt'])
-          && validOrderStatus(request.resource.data.orderStatus)
-          && statusFieldsMatch()
-          && notBackToReceived())
-        || (isKitchen()
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['orderStatus','status','updatedAt','updatedBy'])
-          && validOrderStatus(request.resource.data.orderStatus)
-          && statusFieldsMatch()
-          && kitchenForwardOnly());
+      allow update: if (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['orderStatus','status','updatedAt','payment','paymentMethod','updatedBy','updatedByRole','paymentStatus','reviewedBy','reviewedAt']) && validOrderStatus(request.resource.data.orderStatus) && statusFieldsMatch() && adminStaffStatusAllowed())
+        || (isStaff() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['orderStatus','status','updatedAt','payment','paymentMethod','updatedBy','updatedByRole','paymentStatus','reviewedBy','reviewedAt']) && validOrderStatus(request.resource.data.orderStatus) && statusFieldsMatch() && adminStaffStatusAllowed())
+        || (isKitchen() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['orderStatus','status','updatedAt','updatedBy']) && validOrderStatus(request.resource.data.orderStatus) && statusFieldsMatch() && kitchenForwardOnly());
       allow delete: if isAdmin();
     }
 
-    match /kitchenOrders/{id} {
-      allow read: if isKitchen();
-      allow create, update, delete: if false;
-    }
+    match /kitchenOrders/{id} { allow read: if isKitchen(); allow create, update, delete: if false; }
     match /staff/{uid} { allow get: if signedIn() && (request.auth.uid == uid || isAdmin()); allow list: if isAdmin(); allow create, update, delete: if isAdmin(); }
     match /activityLogs/{id} { allow read: if isAdmin(); allow create: if isStaff(); allow update, delete: if isAdmin(); }
   }
