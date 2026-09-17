@@ -1,11 +1,9 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp, getApps } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { getAuth, signInAnonymously } from "firebase/auth";
 import { getAnalytics, isSupported } from "firebase/analytics";
 import { getFirestore } from "firebase/firestore";
 
-// Your web app's Firebase configuration (from Vite env)
-// Prioritize environment variables, fallback to hardcoded defaults
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -16,10 +14,8 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
-// Check if all required config values are present
 const isConfigValid = Object.values(firebaseConfig).every(value => value !== undefined);
 
-// Fallback to hardcoded defaults if env variables are missing
 if (!isConfigValid) {
   console.warn("Some Firebase config values are missing. Using fallback values.");
   firebaseConfig.apiKey = firebaseConfig.apiKey || "AIzaSyC6rbrFkR1PAkkRhwUVas5ZZ_iDYwhpM6w";
@@ -31,27 +27,28 @@ if (!isConfigValid) {
   firebaseConfig.measurementId = firebaseConfig.measurementId || "G-BJY037YJRC";
 }
 
-// Initialize Firebase app once
 const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
-
-// Auth instance
 const auth = getAuth(app);
-// Firestore instance
 const db = getFirestore(app);
 
-// Analytics (guard for environment support)
 let analytics;
 if (typeof window !== "undefined") {
   try {
     isSupported().then((supported) => {
-      if (supported) {
-        analytics = getAnalytics(app);
-      }
+      if (supported) analytics = getAnalytics(app);
     });
   } catch (_) {
-    // no-op: analytics not supported
+    // Analytics is optional.
   }
 }
 
-export { app, auth, analytics, db };
+// Customer sessions use Firebase Anonymous Auth so Firestore rules can bind
+// order reads to the authenticated browser/device instead of a guessable ID.
+async function ensureCustomerAuth() {
+  if (auth.currentUser) return auth.currentUser;
+  const credential = await signInAnonymously(auth);
+  return credential.user;
+}
+
+export { app, auth, analytics, db, ensureCustomerAuth };
 export default firebaseConfig;
