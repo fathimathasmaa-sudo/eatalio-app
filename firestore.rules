@@ -10,6 +10,7 @@ service cloud.firestore {
     function isKitchen() { return activeStaff() && (isAdmin() || staffDoc().data.role == 'kitchen' || staffDoc().data.Role == 'kitchen' || staffDoc().data.userRole == 'kitchen'); }
     function isCustomerOwner(data) { return signedIn() && (data.guestSessionId == request.auth.uid || data.customerId == request.auth.uid); }
     function validOrderStatus(s) { return s in ['Received','Accepted','Preparing','Ready','Ready for Pickup','Out for Delivery','Completed','Cancelled','Canceled']; }
+    function kitchenStatus(s) { return s in ['Accepted','Preparing','Ready','Ready for Pickup']; }
     function statusFieldsMatch() { return request.resource.data.orderStatus == request.resource.data.status; }
     function adminStaffStatusAllowed() {
       return (resource.data.orderStatus == 'Received' && request.resource.data.orderStatus in ['Accepted','Cancelled','Canceled'])
@@ -19,6 +20,15 @@ service cloud.firestore {
       return (resource.data.orderStatus == 'Accepted' && request.resource.data.orderStatus == 'Preparing')
         || (resource.data.orderStatus == 'Preparing' && request.resource.data.orderStatus in ['Ready','Ready for Pickup']);
     }
+    function publicKitchenUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['orderStatus','status','updatedAt','updatedBy'])
+        && resource.data.orderStatus in ['Accepted','Preparing']
+        && request.resource.data.orderStatus in ['Preparing','Ready','Ready for Pickup']
+        && statusFieldsMatch()
+        && ((resource.data.orderStatus == 'Accepted' && request.resource.data.orderStatus == 'Preparing') || (resource.data.orderStatus == 'Preparing' && request.resource.data.orderStatus in ['Ready','Ready for Pickup']))
+        && request.resource.data.updatedBy == 'kitchen-public';
+    }
+
     match /settings/{id} { allow read: if id == 'app'; allow write: if isAdmin(); }
     match /menu/{id} { allow read: if true; allow create, update, delete: if isAdmin(); }
     match /categories/{id} { allow read: if true; allow create, update, delete: if isAdmin(); }
@@ -43,7 +53,8 @@ service cloud.firestore {
       allow create: if signedIn() && ((request.resource.data.guestSessionId == request.auth.uid) || isStaff()) && request.resource.data.orderStatus == 'Received' && request.resource.data.status == 'Pending' && validOrderStatus(request.resource.data.orderStatus) && (request.resource.data.customerId == null || request.resource.data.customerId == request.auth.uid) && request.resource.data.orderType in ['dine-in','takeaway','delivery'] && ((request.resource.data.orderType == 'dine-in' && request.resource.data.tableId is string && request.resource.data.tableId.size() > 0 && request.resource.data.tableSessionId is string && request.resource.data.tableSessionId.size() > 0 && get(/databases/$(database)/documents/tableSessions/$(request.resource.data.tableSessionId)).data.tableId == request.resource.data.tableId && get(/databases/$(database)/documents/tableSessions/$(request.resource.data.tableSessionId)).data.status == 'open') || request.resource.data.orderType != 'dine-in');
       allow get: if isStaff() || isKitchen() || isCustomerOwner(resource.data);
       allow list: if isStaff() || (signedIn() && resource.data.guestSessionId == request.auth.uid);
-      allow update: if (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['orderStatus','status','updatedAt','payment','paymentMethod','updatedBy','updatedByRole','paymentStatus','reviewedBy','reviewedAt']) && validOrderStatus(request.resource.data.orderStatus) && statusFieldsMatch() && adminStaffStatusAllowed()) || (isStaff() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['orderStatus','status','updatedAt','payment','paymentMethod','updatedBy','updatedByRole','paymentStatus','reviewedBy','reviewedAt']) && validOrderStatus(request.resource.data.orderStatus) && statusFieldsMatch() && adminStaffStatusAllowed()) || (isKitchen() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['orderStatus','status','updatedAt','updatedBy']) && validOrderStatus(request.resource.data.orderStatus) && statusFieldsMatch() && kitchenForwardOnly());
+      allow read: if resource.data.orderStatus in ['Accepted','Preparing','Ready','Ready for Pickup'];
+      allow update: if publicKitchenUpdate() || (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['orderStatus','status','updatedAt','payment','paymentMethod','updatedBy','updatedByRole','paymentStatus','reviewedBy','reviewedAt']) && validOrderStatus(request.resource.data.orderStatus) && statusFieldsMatch() && adminStaffStatusAllowed()) || (isStaff() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['orderStatus','status','updatedAt','payment','paymentMethod','updatedBy','updatedByRole','paymentStatus','reviewedBy','reviewedAt']) && validOrderStatus(request.resource.data.orderStatus) && statusFieldsMatch() && adminStaffStatusAllowed()) || (isKitchen() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['orderStatus','status','updatedAt','updatedBy']) && validOrderStatus(request.resource.data.orderStatus) && statusFieldsMatch() && kitchenForwardOnly());
       allow delete: if isAdmin();
     }
     match /kitchenOrders/{id} { allow read: if isKitchen(); allow create, update, delete: if false; }
