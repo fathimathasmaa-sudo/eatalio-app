@@ -1,0 +1,167 @@
+import React, { useEffect, useState } from "react";
+import { doc, getDoc, serverTimestamp, writeBatch } from "firebase/firestore";
+import { auth, db } from "../firebaseConfig";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft, Database, Loader2, CheckCircle2 } from "lucide-react";
+
+const categories = [
+  ["popular", "Popular", 0],
+  ["starters", "Starters", 1],
+  ["burgers", "Burgers", 2],
+  ["mains", "Mains", 3],
+  ["pasta", "Pasta", 4],
+  ["seafood", "Seafood", 5],
+  ["drinks", "Drinks", 6],
+  ["desserts", "Desserts", 7],
+];
+
+const menu = [
+  ["crispy-chicken-burger", "Crispy Chicken Burger", "Crispy chicken, lettuce and house sauce.", 120, "Burgers", true],
+  ["classic-beef-burger", "Classic Beef Burger", "Beef patty, cheese, lettuce and house sauce.", 145, "Burgers", true],
+  ["chicken-wings", "Chicken Wings", "Crispy wings served with house dip.", 110, "Starters", true],
+  ["loaded-fries", "Loaded Fries", "Crispy fries with cheese and house sauce.", 85, "Starters", false],
+  ["grilled-reef-fish", "Grilled Reef Fish", "Grilled reef fish with fresh herbs and lemon.", 180, "Seafood", true],
+  ["chicken-pasta", "Creamy Chicken Pasta", "Creamy pasta with tender chicken and herbs.", 135, "Pasta", false],
+  ["tuna-pasta", "Tuna Pasta", "Pasta with tuna, tomato and herbs.", 125, "Pasta", false],
+  ["chicken-rice-bowl", "Chicken Rice Bowl", "Seasoned chicken, rice and fresh vegetables.", 130, "Mains", false],
+  ["fresh-lime", "Fresh Lime", "Chilled fresh lime drink.", 45, "Drinks", true],
+  ["iced-coffee", "Iced Coffee", "Cold coffee served over ice.", 75, "Drinks", false],
+  ["chocolate-cake", "Chocolate Cake", "Rich chocolate cake.", 80, "Desserts", true],
+  ["vanilla-cheesecake", "Vanilla Cheesecake", "Creamy vanilla cheesecake.", 90, "Desserts", false],
+];
+
+const tables = ["Table 1", "Table 2", "Table 3", "Table 4", "Table 5"].map((name) => ({
+  id: name.toLowerCase().replace(" ", "-"),
+  name,
+  code: name.toLowerCase().replace(" ", "-"),
+}));
+
+export default function AdminDemoData() {
+  const navigate = useNavigate();
+  const [authorized, setAuthorized] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    return auth.onAuthStateChanged(async (user) => {
+      if (!user) {
+        navigate("/AdminLogin");
+        return;
+      }
+      const snap = await getDoc(doc(db, "staff", user.uid));
+      const data = snap.data() || {};
+      if (String(data.role || "").toLowerCase() !== "admin" && data.isAdmin !== true) {
+        navigate("/");
+        return;
+      }
+      setAuthorized(true);
+      setLoading(false);
+    });
+  }, [navigate]);
+
+  const seed = async () => {
+    setBusy(true);
+    setDone(false);
+    try {
+      const batch = writeBatch(db);
+      const now = serverTimestamp();
+
+      batch.set(doc(db, "settings", "app"), {
+        restaurantName: "Eatalio",
+        logoURL: "",
+        phone: "7000000",
+        email: "test@eatalio.local",
+        address: "Test Restaurant, Maldives",
+        currency: "MVR",
+        taxRate: 8,
+        deliveryEnabled: true,
+        deliveryAreas: [
+          { name: "Hithadhoo", fee: 30 },
+          { name: "Maradhoo", fee: 50 },
+          { name: "Feydhoo", fee: 50 },
+        ],
+        freeDeliveryThreshold: 500,
+        cashEnabled: true,
+        bankTransferEnabled: true,
+        bankName: "TEST BANK",
+        accountName: "Eatalio Test Account",
+        accountNumber: "0000000000",
+        transferInstructions: "TEST DATA ONLY — do not transfer real money.",
+        dineInEnabled: true,
+        takeawayEnabled: true,
+        onlineOrderingEnabled: true,
+        restaurantStatus: "open",
+        maintenanceMode: false,
+        guestOrderingEnabled: true,
+        accountsOptional: true,
+        statusTrackingEnabled: true,
+        allowActiveDineInSessionOrders: true,
+        updatedAt: now,
+      }, { merge: true });
+
+      categories.forEach(([id, name, sortOrder]) => {
+        batch.set(doc(db, "categories", id), { name, sortOrder, createdAt: now, updatedAt: now }, { merge: true });
+      });
+
+      menu.forEach(([id, name, description, price, category, popular]) => {
+        batch.set(doc(db, "menu", id), {
+          name,
+          description,
+          price,
+          category,
+          image: "",
+          available: true,
+          popular,
+          createdAt: now,
+          updatedAt: now,
+        }, { merge: true });
+      });
+
+      tables.forEach((table) => {
+        batch.set(doc(db, "tables", table.id), {
+          name: table.name,
+          code: table.code,
+          active: true,
+          currentSessionId: null,
+          currentSessionStatus: "closed",
+          createdAt: now,
+          updatedAt: now,
+        }, { merge: true });
+      });
+
+      batch.set(doc(db, "settings", "app"), { demoDataSeededAt: now }, { merge: true });
+      await batch.commit();
+      setDone(true);
+    } catch (error) {
+      alert(error.message || "Unable to load demo data.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (loading || !authorized) return <div className="min-h-screen grid place-items-center bg-[#f7f7f5] text-sm text-slate-500">Loading…</div>;
+
+  return (
+    <div className="min-h-screen bg-[#f7f7f5] text-slate-950">
+      <main className="mx-auto max-w-xl px-5 py-10">
+        <button onClick={() => navigate("/admin/dashboard")} className="mb-8 inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-950"><ArrowLeft size={16} /> Back to admin</button>
+        <section className="rounded-3xl bg-white p-7 ring-1 ring-slate-200/70">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100"><Database size={22} /></div>
+          <p className="mt-5 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Testing setup</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight">Load Eatalio demo data</h1>
+          <p className="mt-3 text-sm leading-6 text-slate-500">Adds a small, repeatable test dataset so we can test the customer, staff, kitchen and admin flows without entering everything by hand.</p>
+          <div className="mt-6 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+            <div className="rounded-2xl bg-slate-50 p-4"><b>12</b><span className="mt-1 block text-xs text-slate-400">menu items</span></div>
+            <div className="rounded-2xl bg-slate-50 p-4"><b>8</b><span className="mt-1 block text-xs text-slate-400">categories</span></div>
+            <div className="rounded-2xl bg-slate-50 p-4"><b>5</b><span className="mt-1 block text-xs text-slate-400">tables</span></div>
+            <div className="rounded-2xl bg-slate-50 p-4"><b>3</b><span className="mt-1 block text-xs text-slate-400">delivery areas</span></div>
+          </div>
+          <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-900">This is test data. The bank account shown is deliberately fake. Loading the demo data updates the Eatalio app settings, menu, categories and tables.</div>
+          <button onClick={seed} disabled={busy} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 py-3.5 text-sm font-semibold text-white disabled:opacity-50">{busy ? <><Loader2 size={17} className="animate-spin" /> Loading demo data…</> : done ? <><CheckCircle2 size={17} /> Demo data loaded</> : <><Database size={17} /> Load demo data</>}</button>
+          {done && <div className="mt-5 grid gap-2 sm:grid-cols-3"><button onClick={() => navigate("/admin/menu")} className="rounded-xl bg-slate-100 py-3 text-sm font-semibold">View menu</button><button onClick={() => navigate("/admin/tables")} className="rounded-xl bg-slate-100 py-3 text-sm font-semibold">View tables</button><button onClick={() => navigate("/admin/settings")} className="rounded-xl bg-slate-100 py-3 text-sm font-semibold">View settings</button></div>}
+        </section>
+      </main>
+    </div>
+  );
+}
