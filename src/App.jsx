@@ -45,13 +45,15 @@ function AppRoutes() {
   const location = useLocation();
   useEffect(() => {
     const handleCustomerTabClick = (event) => {
-      const link = event.target.closest?.("a[data-customer-tab]");
-      if (!link || event.defaultPrevented) return;
+      const link = event.target.closest?.("a");
+      const nav = link?.closest?.("nav");
+      if (!link || !nav || !["/", "/menu", "/cart", "/orders"].includes(link.pathname)) return;
       if (link.origin !== window.location.origin) return;
       const target = `${link.pathname}${link.search}${link.hash}`;
       const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
       if (target === current) return;
       event.preventDefault();
+      event.stopPropagation();
       window.location.assign(target);
     };
     document.addEventListener("click", handleCustomerTabClick, true);
