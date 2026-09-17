@@ -18,38 +18,36 @@ export default function KitchenView() {
   useEffect(() => {
     let alive = true;
     let unsubOrders = () => {};
-    const unsubAuth = onAuthStateChanged(auth, async (user) => {
+    let staffUnsub = () => {};
+    const unsubAuth = onAuthStateChanged(auth, (user) => {
       if (!user) {
         if (alive) { setAuthorized(false); setReady(true); }
         navigate("/StaffLogin");
         return;
       }
-      const staffUnsub = onSnapshot(doc(db, "staff", user.uid), (snap) => {
+      staffUnsub();
+      staffUnsub = onSnapshot(doc(db, "staff", user.uid), (snap) => {
         const data = snap.exists() ? snap.data() : {};
         const role = String(data.role || data.Role || data.userRole || "").toLowerCase();
         const allowed = data.active !== false && (role === "kitchen" || role === "admin" || data.isAdmin === true);
         if (!alive) return;
         setAuthorized(allowed);
-        if (!allowed) {
-          setOrders([]);
-          setReady(true);
-          navigate("/");
-          return;
-        }
         unsubOrders();
-        unsubOrders = onSnapshot(collection(db, "orders"), (snap) => {
+        if (!allowed) {
+          setOrders([]); setReady(true); navigate("/"); return;
+        }
+        unsubOrders = onSnapshot(collection(db, "kitchenOrders"), (snap) => {
           const data = snap.docs.map(d => ({ id: d.id, ...d.data() }))
             .filter(o => activeStatuses.includes(statusFor(o)))
-            .sort((a, b) => (b.createdAt?.seconds || b.timestamp?.seconds || 0) - (a.createdAt?.seconds || a.timestamp?.seconds || 0));
+            .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
           if (alive) { setOrders(data); setReady(true); }
         }, () => alive && setReady(true));
       }, () => { if (alive) { setAuthorized(false); setReady(true); } });
-      return () => staffUnsub();
     });
-    return () => { alive = false; unsubOrders(); unsubAuth(); };
+    return () => { alive = false; unsubOrders(); staffUnsub(); unsubAuth(); };
   }, [navigate]);
 
-  const start = async (o) => { await updateDoc(doc(db, "orders", o.id), { orderStatus: "Preparing", status: "Preparing", updatedAt: serverTimestamp() }); };
+  const start = async (o) => updateDoc(doc(db, "orders", o.id), { orderStatus: "Preparing", status: "Preparing", updatedAt: serverTimestamp() });
   const finish = async (o) => { const next = o.orderType === "takeaway" ? "Ready for Pickup" : "Ready"; await updateDoc(doc(db, "orders", o.id), { orderStatus: next, status: next, updatedAt: serverTimestamp() }); };
   const logout = async () => { await signOut(auth); navigate("/StaffLogin"); };
   const prep = useMemo(() => orders.filter(o => ["Received", "Pending", "Accepted"].includes(statusFor(o))), [orders]);
