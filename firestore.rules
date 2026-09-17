@@ -10,6 +10,12 @@ service cloud.firestore {
     function isKitchen() { return activeStaff() && (isAdmin() || staffDoc().data.role == 'kitchen' || staffDoc().data.Role == 'kitchen' || staffDoc().data.userRole == 'kitchen'); }
     function isCustomerOwner(data) { return signedIn() && (data.guestSessionId == request.auth.uid || data.customerId == request.auth.uid); }
     function validOrderStatus(s) { return s in ['Received','Accepted','Preparing','Ready','Ready for Pickup','Out for Delivery','Completed','Cancelled','Canceled']; }
+    function statusFieldsMatch() { return request.resource.data.orderStatus == request.resource.data.status; }
+    function notBackToReceived() { return request.resource.data.orderStatus != 'Received' || resource.data.orderStatus == 'Received'; }
+    function kitchenForwardOnly() {
+      return (resource.data.orderStatus == 'Accepted' && request.resource.data.orderStatus == 'Preparing')
+        || (resource.data.orderStatus == 'Preparing' && request.resource.data.orderStatus in ['Ready','Ready for Pickup']);
+    }
 
     match /settings/{id} { allow read: if id == 'app'; allow write: if isAdmin(); }
     match /menu/{id} { allow read: if true; allow create, update, delete: if isAdmin(); }
@@ -69,9 +75,21 @@ service cloud.firestore {
         );
       allow get: if isStaff() || isKitchen() || isCustomerOwner(resource.data);
       allow list: if isStaff() || (signedIn() && resource.data.guestSessionId == request.auth.uid);
-      allow update: if isAdmin()
-        || (isStaff() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['orderStatus','status','updatedAt','payment','paymentMethod','updatedBy','updatedByRole','paymentStatus','reviewedBy','reviewedAt']) && validOrderStatus(request.resource.data.orderStatus))
-        || (isKitchen() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['orderStatus','status','updatedAt']) && validOrderStatus(request.resource.data.orderStatus));
+      allow update: if (isAdmin()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['orderStatus','status','updatedAt','payment','paymentMethod','updatedBy','updatedByRole','paymentStatus','reviewedBy','reviewedAt'])
+          && validOrderStatus(request.resource.data.orderStatus)
+          && statusFieldsMatch()
+          && notBackToReceived())
+        || (isStaff()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['orderStatus','status','updatedAt','payment','paymentMethod','updatedBy','updatedByRole','paymentStatus','reviewedBy','reviewedAt'])
+          && validOrderStatus(request.resource.data.orderStatus)
+          && statusFieldsMatch()
+          && notBackToReceived())
+        || (isKitchen()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['orderStatus','status','updatedAt','updatedBy'])
+          && validOrderStatus(request.resource.data.orderStatus)
+          && statusFieldsMatch()
+          && kitchenForwardOnly());
       allow delete: if isAdmin();
     }
 
