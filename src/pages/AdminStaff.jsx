@@ -11,6 +11,12 @@ const ROLES = ["admin", "staff", "kitchen"];
 const initialForm = { name: "", email: "", phone: "", role: "staff" };
 const makePassword = () => `Eat${crypto.randomUUID().replaceAll("-", "").slice(0, 10)}!`;
 
+function isAdminProfile(data) {
+  if (!data || typeof data !== "object") return false;
+  const role = String(data.role || data.Role || data.userRole || "").trim().toLowerCase();
+  return role === "admin" || data.isAdmin === true;
+}
+
 export default function AdminStaff() {
   const navigate = useNavigate();
   const [staff, setStaff] = useState([]), [form, setForm] = useState(initialForm), [loading, setLoading] = useState(true), [saving, setSaving] = useState(false), [notice, setNotice] = useState(""), [temporaryPassword, setTemporaryPassword] = useState(""), [copied, setCopied] = useState(false);
@@ -18,8 +24,13 @@ export default function AdminStaff() {
     let unsubStaff;
     const unsubAuth = onAuthStateChanged(auth, async user => {
       if (!user) return navigate("/AdminLogin");
-      try { const snap = await getDoc(doc(db, "staff", user.uid)); if (!snap.exists() || String(snap.data()?.role || "").toLowerCase() !== "admin") return navigate("/"); unsubStaff = onSnapshot(collection(db, "staff"), s => setStaff(s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => String(a.name||a.email).localeCompare(String(b.name||b.email))))); }
-      catch { navigate("/"); } finally { setLoading(false); }
+      try {
+        const snap = await getDoc(doc(db, "staff", user.uid));
+        if (!snap.exists() || !isAdminProfile(snap.data())) return navigate("/AdminLogin");
+        unsubStaff = onSnapshot(collection(db, "staff"), s => setStaff(s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => String(a.name||a.email).localeCompare(String(b.name||b.email)))), err => setNotice(err?.message || "Could not load staff accounts."));
+      } catch (err) {
+        setNotice(err?.message || "Could not verify admin access.");
+      } finally { setLoading(false); }
     });
     return () => { unsubAuth(); unsubStaff?.(); };
   }, [navigate]);
