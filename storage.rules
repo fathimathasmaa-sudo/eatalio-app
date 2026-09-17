@@ -1,0 +1,23 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() { return request.auth != null; }
+    function staffDoc() { return firestore.get(/databases/(default)/documents/staff/$(request.auth.uid)); }
+    function isAdmin() { return signedIn() && (staffDoc().data.role == 'admin' || staffDoc().data.Role == 'admin' || staffDoc().data.userRole == 'admin' || staffDoc().data.isAdmin == true); }
+    function isStaff() { return signedIn() && (isAdmin() || staffDoc().data.role == 'staff' || staffDoc().data.Role == 'staff' || staffDoc().data.userRole == 'staff'); }
+
+    match /payment-slips/{uid}/{fileName} {
+      allow write: if signedIn() && request.auth.uid == uid
+        && request.resource.size < 10 * 1024 * 1024
+        && (request.resource.contentType.matches('image/.*') || request.resource.contentType == 'application/pdf');
+      allow read: if isStaff();
+      allow delete: if isStaff();
+    }
+
+    match /menu/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin();
+      allow delete: if isAdmin();
+    }
+  }
+}
