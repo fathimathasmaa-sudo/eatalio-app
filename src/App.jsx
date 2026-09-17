@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from "react-route
 import RoleSelect from "./pages/LoginSelection";
 import AdminLogin from "./pages/AdminLogin";
 import StaffLogin from "./pages/StaffLogin";
-import AdminDashboard from "./pages/AdminDashboard";
 import AdminOperations from "./pages/AdminOperations";
 import AdminMenu from "./pages/AdminMenu";
 import AdminDeliveryPayments from "./pages/AdminDeliveryPayments";
@@ -67,7 +66,7 @@ function AppRoutes() {
         <Route path="/login" element={<RoleSelect />} />
         <Route path="/AdminLogin" element={<AdminLogin />} />
         <Route path="/StaffLogin" element={<StaffLogin />} />
-        <Route path="/admin/dashboard" element={<AdminDashboard />} />
+        <Route path="/admin/dashboard" element={<AdminOperations />} />
         <Route path="/admin/operations" element={<AdminOperations />} />
         <Route path="/admin/menu" element={<AdminMenu />} />
         <Route path="/admin/delivery-payments" element={<AdminDeliveryPayments />} />
