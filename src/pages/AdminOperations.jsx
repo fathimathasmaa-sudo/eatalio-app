@@ -7,7 +7,7 @@ import { auth, db } from "../firebaseConfig";
 
 const statusOf=o=>o.orderStatus||(o.status==="Pending"?"Received":o.status)||"Received";
 const stages=t=>t==="takeaway"?["Received","Accepted","Preparing","Ready for Pickup","Completed"]:t==="delivery"?["Received","Accepted","Preparing","Ready","Out for Delivery","Completed"]:["Received","Accepted","Preparing","Ready","Completed"];
-const statusOptions=o=>{const s=statusOf(o),a=stages(o.orderType);return s==="Received"?a:a.filter(x=>x!=="Received")};
+const statusOptions=o=>{const s=statusOf(o),a=stages(o.orderType);return s==="Received"?["Accepted"]:a.filter(x=>x!=="Received")};
 const money=v=>`MVR ${Number(v||0).toFixed(2)}`;
 const type=t=>t==="dine-in"?"Dine In":t==="delivery"?"Delivery":"Takeaway";
 const open=o=>!["Completed","Cancelled","Canceled"].includes(statusOf(o));
